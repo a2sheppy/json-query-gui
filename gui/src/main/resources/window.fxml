@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="500.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1">
+   <children>
+      <TextArea fx:id="input_json" prefHeight="200.0" prefWidth="200.0" promptText="Input Json" />
+      <HBox fillHeight="false" maxWidth="1.7976931348623157E308">
+         <children>
+            <TextField fx:id="query" maxWidth="1.7976931348623157E308" promptText="Query" HBox.hgrow="ALWAYS" />
+            <Button fx:id="submit" mnemonicParsing="false" text="Query" />
+         </children>
+      </HBox>
+      <TextArea fx:id="output_json" prefHeight="200.0" prefWidth="200.0" promptText="Output Json" VBox.vgrow="ALWAYS" />
+   </children>
+</VBox>
