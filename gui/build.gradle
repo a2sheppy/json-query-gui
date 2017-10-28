@@ -1,5 +1,5 @@
 group 'com.raybritton.jsonquery'
-version '0.11.0'
+version '0.12.0-alpha'
 
 buildscript {
     ext.kotlin_version = '1.1.51'
