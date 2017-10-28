@@ -1,10 +1,12 @@
 package com.raybritton.jsonquery
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.JsonParseException
 import com.google.gson.JsonSyntaxException
 import com.raybritton.jsonquery.models.Query
 import com.raybritton.jsonquery.models.Query.Method.*
+import com.raybritton.jsonquery.tools.toQuery
 import javafx.application.Application
 import javafx.fxml.FXMLLoader
 import javafx.scene.Parent
@@ -19,12 +21,19 @@ import javafx.scene.control.TextField
 import javafx.stage.FileChooser
 import javafx.stage.Stage
 import java.io.File
+import java.util.prefs.Preferences
 
 class MainWindow : Application() {
+    private val PREFS_SAVE_DIR = "saves.directory"
+    private val PREFS_OPEN_DIR = "json.directory"
+
     private val jsonQuery = JsonQuery()
     private val queryBuilder = QueryBuilder()
     private val whereBuilder = WhereBuilder()
     private lateinit var stage: Stage
+
+    private val gson = GsonBuilder().setPrettyPrinting().create()
+    private val prefs = Preferences.userNodeForPackage(this.javaClass)
 
     private lateinit var scene: Scene
     private val outputSplit by lazy { scene.lookup("#split_output") as TextArea }
@@ -41,6 +50,8 @@ class MainWindow : Application() {
     private val advanced by lazy { scene.lookup("#advanced_input") }
     private val queryBox by lazy { scene.lookup("#query_box") }
     private val searchBox by lazy { scene.lookup("#search_box") }
+    private val searchValue by lazy { scene.lookup("#search_value") as TextField}
+    private val searchTarget by lazy { scene.lookup("#search_target") as TextField}
     private val targetBox by lazy { scene.lookup("#target_box") }
     private val checksBox by lazy { scene.lookup("#checks_box") }
     private val extrasBox by lazy { scene.lookup("#extras_box") }
@@ -66,8 +77,35 @@ class MainWindow : Application() {
         outputTab.textProperty().bindBidirectional(outputSplit.textProperty())
         scene.lookup("#load_json").setOnMouseClicked { openJsonFile() }
         scene.lookup("#save_output").setOnMouseClicked { saveOutput() }
+        scene.lookup("#split_format").setOnMouseClicked { formatJson() }
+        scene.lookup("#tab_format").setOnMouseClicked { formatJson() }
 
         splitView.selectedProperty().set(true)
+    }
+
+    private fun formatJson() {
+        if (jsonTab.text.isNullOrEmpty()) {
+            return
+        }
+        try {
+            val obj = gson.fromJson(jsonTab.text, Any::class.java)
+
+            jsonTab.text = gson.toJson(obj)
+        } catch (e: JsonParseException) {
+            val alert = Alert(Alert.AlertType.ERROR, e.message, ButtonType.OK)
+            alert.title = "Invalid JSON"
+            alert.show()
+        }
+    }
+
+    private fun fillQueryUI() {
+        val queryObject = queryField.text.toQuery()
+        method.value = queryObject.method.name
+        if (queryObject.method == SEARCH) {
+            searchTarget.text = queryObject.target
+            searchValue.text = queryObject.targetKeys.joinToString(",")
+            searchMod.value = queryObject.targetExtra?.name
+        }
     }
 
     private fun buildTextQuery() {
@@ -77,7 +115,12 @@ class MainWindow : Application() {
                 queryBuilder.target = "."
             } else {
                 queryBuilder.target = queryTarget.text
+                queryBuilder.keys = queryField.text.split(",")
             }
+        } else {
+            queryBuilder.target = searchTarget.text
+            queryBuilder.extra = Query.TargetExtra.valueOf(searchMod.value)
+            queryBuilder.keys = searchValue.text.split(',')
         }
 
         if (queryBuilder.method != null && queryBuilder.target != null) {
@@ -87,9 +130,11 @@ class MainWindow : Application() {
     }
 
     private fun process() {
-        buildTextQuery()
         val json = jsonTab.text
         val query = queryField.text
+        if (json.isNullOrEmpty() || query.isNullOrEmpty()) {
+            return
+        }
         processQuery(query, json)
     }
 
@@ -110,7 +155,8 @@ class MainWindow : Application() {
     private fun openJsonFile() {
         val dlg = FileChooser()
         dlg.title = "Open JSON file"
-        dlg.initialDirectory = File(System.getProperty("user.home"), "Downloads")
+        val path = prefs.get(PREFS_OPEN_DIR, File(System.getProperty("user.home"), "Downloads").absolutePath)
+        dlg.initialDirectory = File(path)
         dlg.extensionFilters.addAll(
                 FileChooser.ExtensionFilter("JSON File", "*.json"),
                 FileChooser.ExtensionFilter("Plain text file", "*.txt"),
@@ -118,9 +164,10 @@ class MainWindow : Application() {
         )
         val selectedFile: File? = dlg.showOpenDialog(stage)
         selectedFile?.let {
+            prefs.put(PREFS_OPEN_DIR, selectedFile.parentFile.absolutePath)
             val json = selectedFile.readLines().joinToString(separator = System.lineSeparator())
             try {
-                Gson().fromJson(json, Any::class.java)
+                gson.fromJson(json, Any::class.java)
                 jsonTab.text = json
             } catch (e: JsonParseException) {
                 val alert = Alert(Alert.AlertType.ERROR, e.message, ButtonType.OK)
@@ -133,13 +180,15 @@ class MainWindow : Application() {
     private fun saveOutput() {
         val dlg = FileChooser()
         dlg.title = "Save results"
-        dlg.initialDirectory = File(System.getProperty("user.home"), "Downloads")
+        val path = prefs.get(PREFS_SAVE_DIR, File(System.getProperty("user.home"), "Downloads").absolutePath)
+        dlg.initialDirectory = File(path)
         dlg.extensionFilters.addAll(
                 FileChooser.ExtensionFilter("Plain text file", "*.txt"),
                 FileChooser.ExtensionFilter("Any file", "*.*")
         )
         val selectedFile: File? = dlg.showSaveDialog(stage)
         selectedFile?.let {
+            prefs.put(PREFS_SAVE_DIR, selectedFile.parentFile.absolutePath)
             selectedFile.writeText(outputTab.text)
         }
     }
@@ -152,8 +201,15 @@ class MainWindow : Application() {
 
         setupDropdowns()
 
-        scene.lookup("#advanced_run").setOnMouseClicked { process() }
-        scene.lookup("#simple_run").setOnMouseClicked { process() }
+        scene.lookup("#advanced_run").setOnMouseClicked {
+            fillQueryUI()
+            process() }
+        scene.lookup("#simple_run").setOnMouseClicked {
+            buildTextQuery()
+            process() }
+        scene.lookup("#search_run").setOnMouseClicked {
+            buildTextQuery()
+            process() }
 
         selectEverything.selectedProperty().addListener { _, _, checked ->
             targetBox.showOrHide(!checked)
@@ -175,7 +231,7 @@ class MainWindow : Application() {
                 queryBox.hide()
                 whereBox.hide()
                 whereCheck.hide()
-                extrasBox.hide()
+                extrasBox.isVisible = false
                 checksBox.hide()
                 whereCheck.selectedProperty().set(false)
                 whereCheck.disableProperty().set(true)
@@ -183,7 +239,7 @@ class MainWindow : Application() {
                 searchBox.hide()
                 queryBox.show()
                 whereBox.show()
-                extrasBox.show()
+                extrasBox.isVisible = true
                 whereCheck.show()
                 checksBox.show()
                 whereCheck.disableProperty().set(false)
@@ -196,7 +252,7 @@ class MainWindow : Application() {
         queryBox.hide()
         targetBox.hide()
         whereBox.hide()
-        extrasBox.hide()
+        extrasBox.isVisible = false
         whereCheck.hide()
         checksBox.hide()
     }
