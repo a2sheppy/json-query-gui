@@ -122,6 +122,7 @@ class MainWindow : Application() {
             } else {
                 queryBuilder.target = queryTarget.text
                 queryBuilder.keys = queryField.text.split(",")
+                queryBuilder.extra = Query.TargetExtra.valueOf(queryMod.value)
             }
         } else {
             queryBuilder.target = searchTarget.text
@@ -151,6 +152,7 @@ class MainWindow : Application() {
         queryBuilder.distinct = distinct.isSelected
         queryBuilder.pretty = prettyPrint.isSelected
         queryBuilder.withKeys = withKeys.isSelected
+
         if (queryBuilder.method != null && queryBuilder.target != null) {
             advancedQueryField.text = queryBuilder.build().toString()
         }
@@ -246,7 +248,7 @@ class MainWindow : Application() {
     private fun setupDropdowns() {
         method.items.setAll("SELECT", "DESCRIBE", "SELECT")
         searchMod.items.setAll("KEY", "VALUE")
-        queryMod.items.setAll("", "KEYS", "VALUES", "MAX", "MIN", "COUNT", "SUM")
+        queryMod.items.setAll("SPECIFIC", "KEYS", "VALUES", "MAX", "MIN", "COUNT", "SUM")
         operator.items.setAll("EQUAL", "NOT EQUAL", "LESS THAN", "GREATER THAN", "CONTAINS", "NOT CONTAINS")
     }
 
