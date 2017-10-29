@@ -12,9 +12,10 @@
 *.iws
 
 ## Plugin-specific files:
+local.properties
 
 # IntelliJ
-/out/
+out/
 build/
 
 # mpeltonen/sbt-idea plugin
