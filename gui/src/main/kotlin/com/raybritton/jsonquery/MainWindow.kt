@@ -3,6 +3,7 @@ package com.raybritton.jsonquery
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParseException
 import com.raybritton.jsonquery.models.Query
+import com.raybritton.jsonquery.models.Query.*
 import com.raybritton.jsonquery.tools.toQuery
 import javafx.application.Application
 import javafx.fxml.FXMLLoader
@@ -29,16 +30,11 @@ class MainWindow : Application() {
 
     private lateinit var scene: Scene
     private val outputSplit by lazy { scene.lookup("#split_output") as TextArea }
-    private val outputTab by lazy { scene.lookup("#tab_output") as TextArea }
     private val jsonSplit by lazy { scene.lookup("#split_json") as TextArea }
-    private val jsonTab by lazy { scene.lookup("#tab_json") as TextArea }
     private val advancedQueryField by lazy { scene.lookup("#advanced_query") as TextField }
     private val queryField by lazy { scene.lookup("#query_field") as TextField }
     private val selectEverything by lazy { scene.lookup("#query_everything") as CheckBox }
-    private val splitView by lazy { scene.lookup("#splits_enabled") as CheckBox }
     private val advancedMode by lazy { scene.lookup("#advanced_mode") as CheckBox }
-    private val tabs by lazy { scene.lookup("#tabs") }
-    private val splits by lazy { scene.lookup("#splits") }
     private val whereCheck by lazy { scene.lookup("#where_enabled") as CheckBox }
     private val simple by lazy { scene.lookup("#simple_query") }
     private val advanced by lazy { scene.lookup("#advanced_input") }
@@ -48,10 +44,10 @@ class MainWindow : Application() {
     private val orderBy by lazy { scene.lookup("#order_by_field") as TextField }
     private val orderDesc by lazy { scene.lookup("#order_by_desc") as CheckBox }
     private val searchBox by lazy { scene.lookup("#search_box") }
-    private val searchValue by lazy { scene.lookup("#search_value") as TextField}
-    private val searchTarget by lazy { scene.lookup("#search_target") as TextField}
-    private val whereField by lazy { scene.lookup("#where_field") as TextField}
-    private val whereCompare by lazy { scene.lookup("#where_compare") as TextField}
+    private val searchValue by lazy { scene.lookup("#search_value") as TextField }
+    private val searchTarget by lazy { scene.lookup("#search_target") as TextField }
+    private val whereField by lazy { scene.lookup("#where_field") as TextField }
+    private val whereCompare by lazy { scene.lookup("#where_compare") as TextField }
     private val targetBox by lazy { scene.lookup("#target_box") }
     private val checksBox by lazy { scene.lookup("#checks_box") }
     private val extrasBox by lazy { scene.lookup("#extras_box") }
@@ -61,10 +57,10 @@ class MainWindow : Application() {
     private val withKeys by lazy { scene.lookup("#with_keys") as CheckBox }
     private val queryTarget by lazy { scene.lookup("#query_target") as TextField }
     private val whereBox by lazy { scene.lookup("#where_box") }
-    private val method by lazy { scene.lookup("#method") as ComboBox<String> }
+    private val method by lazy { scene.lookup("#method") as ComboBox<Query.Method> }
     private val searchMod by lazy { scene.lookup("#search_modifier") as ChoiceBox<String> }
     private val queryMod by lazy { scene.lookup("#query_modifier") as ChoiceBox<String> }
-    private val operator by lazy { scene.lookup("#where_operator") as ComboBox<String> }
+    private val operator by lazy { scene.lookup("#where_operator") as ComboBox<Query.Where.Operator> }
 
     override fun start(stage: Stage) {
         this.stage = stage
@@ -77,22 +73,17 @@ class MainWindow : Application() {
 
         setupUi()
 
-        jsonTab.textProperty().bindBidirectional(jsonSplit.textProperty())
-        outputTab.textProperty().bindBidirectional(outputSplit.textProperty())
-        scene.lookup("#load_json").setOnMouseClicked { jsonTab.text = saveLoadDialogs.openJsonFile() }
-        scene.lookup("#save_output").setOnMouseClicked { saveLoadDialogs.saveOutput(outputTab.text) }
+        scene.lookup("#load_json").setOnMouseClicked { jsonSplit.text = saveLoadDialogs.openJsonFile() }
+        scene.lookup("#save_output").setOnMouseClicked { saveLoadDialogs.saveOutput(outputSplit.text) }
         scene.lookup("#split_format").setOnMouseClicked { formatJson() }
-        scene.lookup("#tab_format").setOnMouseClicked { formatJson() }
         scene.lookup("#help").setOnMouseClicked { HtmlWindow().show("Help", "https://github.com/raybritton/json-query/blob/master/JQL.md") }
-
-        splitView.selectedProperty().set(true)
     }
 
     private fun formatJson() {
-        if (jsonTab.text.isNullOrEmpty()) return
+        if (jsonSplit.text.isNullOrEmpty()) return
         try {
-            val obj = gson.fromJson(jsonTab.text, Any::class.java)
-            jsonTab.text = gson.toJson(obj)
+            val obj = gson.fromJson(jsonSplit.text, Any::class.java)
+            jsonSplit.text = gson.toJson(obj)
         } catch (e: JsonParseException) {
             val alert = Alert(Alert.AlertType.ERROR, e.message, ButtonType.OK)
             alert.title = "Invalid JSON"
@@ -102,8 +93,8 @@ class MainWindow : Application() {
 
     private fun fillQueryUI() {
         val queryObject = advancedQueryField.text.toQuery()
-        method.value = queryObject.method.name
-        if (queryObject.method == Query.Method.SEARCH) {
+        method.value = queryObject.method
+        if (queryObject.method == Method.SEARCH) {
             searchTarget.text = queryObject.target
             searchValue.text = queryObject.targetKeys.joinToString(",")
             searchMod.value = queryObject.targetExtra?.name
@@ -126,7 +117,7 @@ class MainWindow : Application() {
                 whereCheck.isSelected = true
                 whereField.text = queryObject.where?.field
                 whereCompare.text = queryObject.where?.compare.toString()
-                operator.value = queryObject.where?.operator.toString().replace('_',' ')
+                operator.value = queryObject.where?.operator
             }
         }
         asJson.isSelected = queryObject.asJson
@@ -136,28 +127,28 @@ class MainWindow : Application() {
     }
 
     private fun buildTextQuery() {
-        queryBuilder.method = Query.Method.valueOf(method.value)
-        if (queryBuilder.method == Query.Method.SELECT || queryBuilder.method == Query.Method.DESCRIBE ) {
+        queryBuilder.method = method.value
+        if (queryBuilder.method == Method.SELECT || queryBuilder.method == Method.DESCRIBE) {
             if (selectEverything.isSelected) {
                 queryBuilder.target = "."
             } else {
                 queryBuilder.target = queryTarget.text
                 queryBuilder.keys = queryField.text.split(",")
-                queryBuilder.extra = Query.TargetExtra.valueOf(queryMod.value)
+                queryBuilder.extra = TargetExtra.valueOf(queryMod.value)
             }
         } else {
             queryBuilder.target = searchTarget.text
-            queryBuilder.extra = Query.TargetExtra.valueOf(searchMod.value)
+            queryBuilder.extra = TargetExtra.valueOf(searchMod.value)
             queryBuilder.keys = searchValue.text.split(',')
         }
 
         queryBuilder.limit = limit.text.toIntOrNull()
         queryBuilder.offset = offset.text.toIntOrNull()
-        if (whereCheck.isSelected && whereField.text.isNotEmpty() && whereCompare.text.isNotEmpty() && operator.value.isNotEmpty()) {
+        if (whereCheck.isSelected && whereField.text.isNotEmpty() && whereCompare.text.isNotEmpty() && operator.value != null) {
             val whereBuilder = WhereBuilder()
             whereBuilder.compare = whereCompare.text
             whereBuilder.field = whereField.text
-            whereBuilder.operator = Query.Where.Operator.valueOf(operator.value.replace(' ', '_'))
+            whereBuilder.operator = Where.Operator.valueOf(operator.value.name.replace(' ', '_'))
             queryBuilder.where = whereBuilder.build()
         } else {
             queryBuilder.where = null
@@ -180,7 +171,7 @@ class MainWindow : Application() {
     }
 
     private fun process() {
-        val json = jsonTab.text
+        val json = jsonSplit.text
         val query = advancedQueryField.text
         if (json.isNullOrEmpty() || query.isNullOrEmpty()) return
         jsonQuery.loadJson(json)
@@ -193,7 +184,7 @@ class MainWindow : Application() {
     }
 
     private fun showResult(msg: String) {
-        outputTab.text = msg
+        outputSplit.text = msg
     }
 
     private fun setupUi() {
@@ -204,23 +195,17 @@ class MainWindow : Application() {
         setupDropdowns()
         setupCheckboxes()
 
-        scene.lookup("#advanced_run").setOnMouseClicked {
-            fillQueryUI()
-            process() }
-        scene.lookup("#simple_run").setOnMouseClicked {
-            buildTextQuery()
-            process() }
-        scene.lookup("#search_run").setOnMouseClicked {
-            buildTextQuery()
-            process() }
+        scene.lookup("#run_query").setOnMouseClicked {
+            if (advancedMode.isSelected) {
+                fillQueryUI()
+            } else {
+                buildTextQuery()
+            }
+            process()
+        }
 
         selectEverything.selectedProperty().addListener { _, _, checked ->
             targetBox.showOrHide(!checked)
-        }
-
-        splitView.selectedProperty().addListener { _, _, checked ->
-            splits.showOrHide(checked)
-            tabs.showOrHide(!checked)
         }
 
         advancedMode.selectedProperty().addListener { _, _, checked ->
@@ -229,21 +214,37 @@ class MainWindow : Application() {
         }
 
         method.valueProperty().addListener { _, _, value ->
-            if (value == "SEARCH") {
-                searchBox.show()
-                queryBox.hide()
-                whereBox.hide()
-                whereCheck.hide()
-                extrasBox.isVisible = false
-                checksBox.hide()
-            } else {
-                searchBox.hide()
-                queryBox.show()
-                extrasBox.isVisible = true
-                whereCheck.show()
-                checksBox.show()
-                if (whereCheck.isSelected) {
-                    whereBox.show()
+            when (value) {
+                Method.SEARCH -> {
+                    searchBox.show()
+                    queryBox.hide()
+                    whereBox.hide()
+                    whereCheck.hide()
+                    extrasBox.hide()
+                    checksBox.hide()
+                }
+                Method.SELECT -> {
+                    searchBox.hide()
+                    queryBox.show()
+                    extrasBox.show()
+                    whereCheck.show()
+                    checksBox.show()
+                    if (whereCheck.isSelected) {
+                        whereBox.show()
+                    }
+                    asJson.isDisable = false
+                }
+                Method.DESCRIBE -> {
+                    searchBox.hide()
+                    queryBox.show()
+                    extrasBox.show()
+                    whereCheck.show()
+                    checksBox.show()
+                    if (whereCheck.isSelected) {
+                        whereBox.show()
+                    }
+                    asJson.isSelected = false
+                    asJson.isDisable = true
                 }
             }
         }
@@ -255,32 +256,31 @@ class MainWindow : Application() {
             }
         }
 
-        splits.hide()
         advanced.hide()
         searchBox.hide()
         queryBox.hide()
         targetBox.hide()
         whereBox.hide()
-        extrasBox.isVisible = false
+        extrasBox.hide()
         whereCheck.hide()
         checksBox.hide()
     }
 
     private fun setupDropdowns() {
-        method.items.setAll("SELECT", "DESCRIBE", "SELECT")
+        method.items.setAll(Method.SELECT, Method.DESCRIBE, Method.SEARCH)
         searchMod.items.setAll("KEY", "VALUE")
         queryMod.items.setAll("SPECIFIC", "KEYS", "VALUES", "MAX", "MIN", "COUNT", "SUM")
-        operator.items.setAll("EQUAL", "NOT EQUAL", "LESS THAN", "GREATER THAN", "CONTAINS", "NOT CONTAINS")
+        operator.items.setAll(Where.Operator.EQUAL, Where.Operator.NOT_EQUAL, Where.Operator.LESS_THAN, Where.Operator.GREATER_THAN, Where.Operator.CONTAINS, Where.Operator.NOT_CONTAINS)
     }
 
     private fun setupCheckboxes() {
         prettyPrint.selectedProperty().addListener { _, _, value ->
-            if (value) {
+            if (value && method.value == Method.SELECT) {
                 asJson.isSelected = true
             }
         }
         asJson.selectedProperty().addListener { _, _, value ->
-            if (!value) {
+            if (!value && method.value == Method.SELECT) {
                 prettyPrint.isSelected = false
             }
         }
