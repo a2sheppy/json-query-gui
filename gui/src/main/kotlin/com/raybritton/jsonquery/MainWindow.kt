@@ -107,6 +107,27 @@ class MainWindow : Application() {
             searchTarget.text = queryObject.target
             searchValue.text = queryObject.targetKeys.joinToString(",")
             searchMod.value = queryObject.targetExtra?.name
+        } else {
+            if (queryObject.target == "." && queryObject.targetKeys.isEmpty()) {
+                selectEverything.isSelected = true
+            } else {
+                selectEverything.isSelected = false
+                queryMod.value = queryObject.targetExtra?.name
+                queryField.text = queryObject.targetKeys.joinToString(", ")
+                queryTarget.text = queryObject.target
+            }
+            limit.text = queryObject.limit?.toString() ?: ""
+            offset.text = queryObject.offset?.toString() ?: ""
+            orderBy.text = queryObject.order ?: ""
+            orderDesc.isSelected = queryObject.desc
+            if (queryObject.where == null) {
+                whereCheck.isSelected = false
+            } else {
+                whereCheck.isSelected = true
+                whereField.text = queryObject.where?.field
+                whereCompare.text = queryObject.where?.compare.toString()
+                operator.value = queryObject.where?.operator.toString().replace('_',' ')
+            }
         }
         asJson.isSelected = queryObject.asJson
         distinct.isSelected = queryObject.distinct
