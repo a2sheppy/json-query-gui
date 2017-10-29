@@ -24,8 +24,6 @@ import java.io.File
 import java.util.prefs.Preferences
 
 class MainWindow : Application() {
-    private val PREFS_SAVE_DIR = "saves.directory"
-    private val PREFS_OPEN_DIR = "json.directory"
 
     private val jsonQuery = JsonQuery()
     private val queryBuilder = QueryBuilder()
@@ -33,7 +31,7 @@ class MainWindow : Application() {
     private lateinit var stage: Stage
 
     private val gson = GsonBuilder().setPrettyPrinting().create()
-    private val prefs = Preferences.userNodeForPackage(this.javaClass)
+    private val saveLoadDialogs by lazy { SaveLoadDialogs(stage, gson) }
 
     private lateinit var scene: Scene
     private val outputSplit by lazy { scene.lookup("#split_output") as TextArea }
@@ -75,8 +73,8 @@ class MainWindow : Application() {
 
         jsonTab.textProperty().bindBidirectional(jsonSplit.textProperty())
         outputTab.textProperty().bindBidirectional(outputSplit.textProperty())
-        scene.lookup("#load_json").setOnMouseClicked { openJsonFile() }
-        scene.lookup("#save_output").setOnMouseClicked { saveOutput() }
+        scene.lookup("#load_json").setOnMouseClicked { jsonTab.text = saveLoadDialogs.openJsonFile() }
+        scene.lookup("#save_output").setOnMouseClicked { saveLoadDialogs.saveOutput(outputTab.text) }
         scene.lookup("#split_format").setOnMouseClicked { formatJson() }
         scene.lookup("#tab_format").setOnMouseClicked { formatJson() }
 
@@ -84,12 +82,9 @@ class MainWindow : Application() {
     }
 
     private fun formatJson() {
-        if (jsonTab.text.isNullOrEmpty()) {
-            return
-        }
+        if (jsonTab.text.isNullOrEmpty()) return
         try {
             val obj = gson.fromJson(jsonTab.text, Any::class.java)
-
             jsonTab.text = gson.toJson(obj)
         } catch (e: JsonParseException) {
             val alert = Alert(Alert.AlertType.ERROR, e.message, ButtonType.OK)
@@ -124,7 +119,6 @@ class MainWindow : Application() {
         }
 
         if (queryBuilder.method != null && queryBuilder.target != null) {
-
             queryField.text = queryBuilder.build().toString()
         }
     }
@@ -135,10 +129,6 @@ class MainWindow : Application() {
         if (json.isNullOrEmpty() || query.isNullOrEmpty()) {
             return
         }
-        processQuery(query, json)
-    }
-
-    private fun processQuery(query: String, json: String) {
         jsonQuery.loadJson(json)
         try {
             val result = jsonQuery.query(query)
@@ -150,47 +140,6 @@ class MainWindow : Application() {
 
     private fun showResult(msg: String) {
         outputTab.text = msg
-    }
-
-    private fun openJsonFile() {
-        val dlg = FileChooser()
-        dlg.title = "Open JSON file"
-        val path = prefs.get(PREFS_OPEN_DIR, File(System.getProperty("user.home"), "Downloads").absolutePath)
-        dlg.initialDirectory = File(path)
-        dlg.extensionFilters.addAll(
-                FileChooser.ExtensionFilter("JSON File", "*.json"),
-                FileChooser.ExtensionFilter("Plain text file", "*.txt"),
-                FileChooser.ExtensionFilter("Any file", "*.*")
-        )
-        val selectedFile: File? = dlg.showOpenDialog(stage)
-        selectedFile?.let {
-            prefs.put(PREFS_OPEN_DIR, selectedFile.parentFile.absolutePath)
-            val json = selectedFile.readLines().joinToString(separator = System.lineSeparator())
-            try {
-                gson.fromJson(json, Any::class.java)
-                jsonTab.text = json
-            } catch (e: JsonParseException) {
-                val alert = Alert(Alert.AlertType.ERROR, e.message, ButtonType.OK)
-                alert.title = "Invalid JSON"
-                alert.show()
-            }
-        }
-    }
-
-    private fun saveOutput() {
-        val dlg = FileChooser()
-        dlg.title = "Save results"
-        val path = prefs.get(PREFS_SAVE_DIR, File(System.getProperty("user.home"), "Downloads").absolutePath)
-        dlg.initialDirectory = File(path)
-        dlg.extensionFilters.addAll(
-                FileChooser.ExtensionFilter("Plain text file", "*.txt"),
-                FileChooser.ExtensionFilter("Any file", "*.*")
-        )
-        val selectedFile: File? = dlg.showSaveDialog(stage)
-        selectedFile?.let {
-            prefs.put(PREFS_SAVE_DIR, selectedFile.parentFile.absolutePath)
-            selectedFile.writeText(outputTab.text)
-        }
     }
 
     private fun setupUi() {
