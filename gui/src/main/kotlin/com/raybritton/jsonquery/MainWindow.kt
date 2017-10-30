@@ -131,6 +131,8 @@ class MainWindow : Application() {
         if (queryBuilder.method == Method.SELECT || queryBuilder.method == Method.DESCRIBE) {
             if (selectEverything.isSelected) {
                 queryBuilder.target = "."
+                queryBuilder.keys = listOf()
+                queryBuilder.extra = null
             } else {
                 queryBuilder.target = queryTarget.text
                 queryBuilder.keys = queryField.text.split(",")
